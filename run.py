@@ -48,18 +48,22 @@ def englishness(langs):
         [{"de":0.1}, {"fr":0.5}] # 0.0
         [] # None
     """
-    english = [d for d in langs if d.get("en") is not None]
-    non_english =   [d for d in langs if d.get("en") is None]
-    non_english_sorted = sorted(non_english, key=lambda lang: (lang.itervalues().next()), reverse=True) if non_english is not None else None
-    if not english and not non_english:
-        return None
+    english = [d for d in langs if d.get("en")]
+    non_english = [d for d in langs if not d.get("en")]
+    non_english_sorted = sorted(non_english, key=lambda lang: (lang.itervalues().next()), reverse=True) if not non_english else []
+    if english and non_english:
+        english_score = float(english[0]["en"])
+        non_english_top_score = float(non_english_sorted[0].itervalues().next())
+        englishness = english_score/(non_english_top_score+english_score)
+        logging.info("Score English:  %d  None English %d Englishness %d" % english_score, non_english_top_score, englishness)
+        return englishness
+
     if english and not non_english:
+        logging.info("english and not non_english")
         return 1.0
     if not english and non_english:
+        logging.info("not english and non_english")
         return 0.0
-    english_score = float(english[0]["en"])
-    non_english_top_score = float(non_english_sorted[0].itervalues().next())
-    return english_score/(non_english_top_score+english_score)
 
 def main_lang(langs):
     sorted_langs = sorted(langs, key=lambda lang: (lang.itervalues().next()), reverse=True)
