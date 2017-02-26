@@ -17,7 +17,7 @@ from langdetect import detect_langs
 app = Celery('tasks', broker=os.environ.get('REDIS_URL'))
 github = Github(os.environ.get("GITHUB_TOKEN"))
 es = Elasticsearch([os.environ.get('ELASTICSEARCH_URL')])
-logging.basicConfig(filename='./logs/debug.log',level=logging.INFO)
+logging.basicConfig(filename='./logs/debug.log',level=logging.DEBUG)
 r = redis.Redis.from_url(os.environ.get('REDIS_URL'))
 
 def lang_dict ( text ):
@@ -74,6 +74,7 @@ def index_repo(full_name):
     """
     logging.info("indexing %s", full_name)
     doc = repo_with_human_lang(full_name)
+    logging.debug(doc)
     res = es.index(index="repos", doc_type='repo', id=full_name, body=doc)
     r.set('last_github_repository_id', doc["id"])
     return res
@@ -98,14 +99,17 @@ def repo_with_human_lang(full_name):
     """
     repo = github.get_repo(full_name)
     r = {}
-    readme_base64 = repo.get_readme()
-    readme = base64.b64decode(readme_base64.content)
     r["full_name"] = repo.full_name
-    readme_human_languages = lang_dict(readme)
-    r["readme_human_languages"] = readme_human_languages
-    r["readme_englishness"] = englishness(readme_human_languages)
+    try:
+        readme_base64 = repo.get_readme()
+        readme = base64.b64decode(readme_base64.content)
+        readme_human_languages = lang_dict(readme)
+        r["readme_human_languages"] = readme_human_languages
+        r["readme_englishness"] = englishness(readme_human_languages)
+        r["main_lang"] = main_lang(readme_human_languages)
+    except:
+        logging.info("No Readme")
     r["description_human_languages"] = lang_dict(repo.description)
-    r["main_lang"] = main_lang(readme_human_languages)
     r["language"] = repo.language
     r["owner"] = repo.owner
     r["stargazers_count"] = repo.stargazers_count
@@ -126,12 +130,13 @@ def repo_with_human_lang(full_name):
 
 last_repo = int(r.get('last_github_repository_id'))
 count = 0
+try:
+    es.indices.create(index='repos')
+except TransportError:
+    logging.info('Index Already Created.')
+
 for repository in github.get_repos(0 if last_repo is None else last_repo):
     count += 1
-    try:
-        es.indices.create(index='repos')
-    except TransportError:
-        logging.info('Index Already Created.')
     if not repo_indexed(repository.full_name):
         index_repo.delay(repository.full_name)
    # for the moment we are playing so let's end this after twenty repos.
