@@ -105,7 +105,7 @@ def repo_with_human_lang(full_name):
         readme = base64.b64decode(readme_base64.content)
         readme_human_languages = lang_dict(readme)
         r["readme_len"] = len(readme)
-        if r["readme_len"] > 200:
+        if r["readme_len"] > 10:
             r["readme_human_languages"] = readme_human_languages
             r["readme_englishness"] = englishness(readme_human_languages)
             r["main_lang"] = main_lang(readme_human_languages)
